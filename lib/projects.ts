@@ -163,10 +163,27 @@ export async function forgetRoot() {
 }
 
 // ---- Projects ----
+// Each project folder gets this marker file so the app can tell its own
+// projects apart from unrelated folders (.git, node_modules, app, etc.) that
+// might live in the same root.
+const MARKER = ".falstudio";
+
+async function isProjectFolder(dir: DirHandle): Promise<boolean> {
+  try {
+    await dir.getFileHandle(MARKER); // throws if absent
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+// List only folders the app created (those carrying the marker file).
 export async function listProjects(root: DirHandle): Promise<string[]> {
   const names: string[] = [];
   for await (const [name, handle] of root.entries()) {
-    if (handle.kind === "directory") names.push(name);
+    if (handle.kind === "directory" && (await isProjectFolder(handle as DirHandle))) {
+      names.push(name);
+    }
   }
   return names.sort();
 }
@@ -178,6 +195,11 @@ function sanitize(name: string): string {
 export async function openProject(root: DirHandle, rawName: string): Promise<DirHandle> {
   const name = sanitize(rawName);
   const proj = await root.getDirectoryHandle(name, { create: true });
+  // Tag it as a Fal Studio project so it shows up in the project list.
+  const marker = await proj.getFileHandle(MARKER, { create: true });
+  const w = await marker.createWritable();
+  await w.write("fal-studio project\n");
+  await w.close();
   // Ensure the standard subfolders exist.
   await proj.getDirectoryHandle("images", { create: true });
   await proj.getDirectoryHandle("videos", { create: true });

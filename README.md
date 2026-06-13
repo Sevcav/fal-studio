@@ -16,9 +16,9 @@ Three-panel "Director's Desk" workspace:
 
 The bar above the gallery is a project workspace backed by an actual folder on your drive (via the browser's File System Access API).
 
-- **Choose project folder** once. Inside it, each project is a subfolder with `images/`, `videos/`, `storyboard/`, and a `project.json` (prompts + storyboard order).
+- **Choose project folder** once — you can pick any folder. Each project the app creates is a subfolder with `images/`, `videos/`, `storyboard/`, a `project.json` (prompts + storyboard order), and a hidden `.falstudio` marker file.
+- That marker is how the app keeps things tidy: the **Switch project** dropdown only lists folders *it* created, so picking a busy folder (even the app's own source folder) never shows `.git`, `node_modules`, or other unrelated directories.
 - **New project** = a fresh start: it clears the on-screen gallery, storyboard, and prompts so each project is self-contained.
-- **Switch project** from the dropdown to reopen an existing one.
 - **Select** items with the checkboxes (or **Select all**), then **Save selected** writes the media into the project's `images/` and `videos/` folders. With nothing selected, it saves everything.
 - **Insert saved image** browses a project's `images/` folder as thumbnails; click one to load it as a reference into edit/animate mode.
 
