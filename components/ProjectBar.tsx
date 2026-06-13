@@ -63,10 +63,24 @@ export default function ProjectBar({
 
   async function handlePickRoot() {
     const h = await pickRoot();
-    if (h) {
-      setRoot(h);
-      setProject(null);
+    if (!h) return;
+    setRoot(h);
+    setProject(null);
+    const existing = await listProjects(h);
+    setProjects(existing);
+    // One smooth flow: right after picking the folder, ask for a project name
+    // and create it (with its images/videos/storyboard subfolders) immediately.
+    const name = window.prompt(
+      "Name this project (a subfolder with images / videos / storyboard will be created):",
+      existing.length === 0 ? "My First Project" : "",
+    );
+    if (name && name.trim()) {
+      setBusy("Creating project…");
+      const proj = await openProject(h, name.trim());
+      setProject(proj);
       setProjects(await listProjects(h));
+      setBusy(null);
+      onNewProject(); // fresh start for the new project
     }
   }
 

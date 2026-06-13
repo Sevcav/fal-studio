@@ -24,6 +24,18 @@ The bar above the gallery is a project workspace backed by an actual folder on y
 
 **Browser support:** direct folder saving needs **Chrome or Edge**. On **Firefox/Safari** the app automatically falls back to bundling the selected media into a single **`.zip` download** (foldered by type) — same result, one extra unzip step. After a full page reload the browser may ask you to re-grant folder access (a one-click confirm), since handles are remembered but permission is re-checked for security.
 
+## Enhanced prompts (Claude Code)
+
+The **✨ Enhanced prompts** panel reads prompts that **Claude Code** writes into
+`public/prompts.json`. You describe an idea in the Claude Code terminal
+(`enhance: a cute robot watering plants, for an image`) and it writes a polished
+prompt; in the app you click **↻ Refresh from Claude Code** and then the prompt to
+load it. This rides on a **Claude Pro/Max subscription** — no extra API key or
+per-prompt cost.
+
+**Never used a terminal?** Follow the step-by-step guide:
+[docs/ENHANCED_PROMPTS_SETUP.md](docs/ENHANCED_PROMPTS_SETUP.md).
+
 ## Tracking spend
 
 The top bar shows two figures, both fully local (no key, no API call):
