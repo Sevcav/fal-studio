@@ -6,9 +6,12 @@ interface GalleryGridProps {
   items: GalleryItem[];
   /** Which tab is active — drives the empty-state copy. */
   tab: "images" | "videos";
+  selectedIds: Set<string>;
+  onToggleSelect: (id: string) => void;
   onDelete: (id: string) => void;
   onAddToStory: (item: GalleryItem) => void;
   onUseImage: (item: GalleryItem) => void;
+  onZoom: (item: GalleryItem) => void;
 }
 
 function extensionFromUrl(url: string, kind: GalleryItem["kind"]): string {
@@ -36,7 +39,7 @@ async function downloadItem(item: GalleryItem) {
   }
 }
 
-export default function GalleryGrid({ items, tab, onDelete, onAddToStory, onUseImage }: GalleryGridProps) {
+export default function GalleryGrid({ items, tab, selectedIds, onToggleSelect, onDelete, onAddToStory, onUseImage, onZoom }: GalleryGridProps) {
   if (items.length === 0) {
     return (
       <div className="flex flex-1 items-center justify-center p-12 text-center text-zinc-600">
@@ -65,18 +68,47 @@ export default function GalleryGrid({ items, tab, onDelete, onAddToStory, onUseI
               e.dataTransfer.setData("application/x-fal-item", JSON.stringify(item));
               e.dataTransfer.effectAllowed = "copy";
             }}
-            className="group relative overflow-hidden rounded-xl border border-zinc-800 bg-zinc-900/60"
+            className={`group relative overflow-hidden rounded-xl border bg-zinc-900/60 ${
+              selectedIds.has(item.id) ? "border-violet-500 ring-1 ring-violet-500" : "border-zinc-800"
+            }`}
           >
             <div className="relative aspect-video cursor-grab bg-black active:cursor-grabbing">
+              {/* Selection checkbox for batch save */}
+              <label
+                className="absolute left-2 top-2 z-20 flex cursor-pointer items-center"
+                onClick={(e) => e.stopPropagation()}
+                title="Select for saving"
+              >
+                <input
+                  type="checkbox"
+                  checked={selectedIds.has(item.id)}
+                  onChange={() => onToggleSelect(item.id)}
+                  className="h-4 w-4 accent-violet-500"
+                />
+              </label>
               {isVideo ? (
                 <video src={item.url} controls loop className="h-full w-full object-contain" />
               ) : (
+                // Click image to zoom to full scale in the lightbox.
                 // eslint-disable-next-line @next/next/no-img-element -- remote fal CDN URLs
-                <img src={item.url} alt={item.prompt} className="h-full w-full object-contain" />
+                <img
+                  src={item.url}
+                  alt={item.prompt}
+                  onClick={() => onZoom(item)}
+                  className="h-full w-full cursor-zoom-in object-contain"
+                />
               )}
-              <span className="pointer-events-none absolute left-2 top-2 rounded bg-black/70 px-1.5 py-0.5 text-[10px] uppercase tracking-wide text-zinc-300">
+              <span className="pointer-events-none absolute left-8 top-2 rounded bg-black/70 px-1.5 py-0.5 text-[10px] uppercase tracking-wide text-zinc-300">
                 {item.kind}
               </span>
+              {/* Expand-to-fullscreen (works for video too, where click plays it) */}
+              <button
+                onClick={() => onZoom(item)}
+                title="View full size"
+                className="absolute bottom-2 right-2 z-10 flex h-7 w-7 items-center justify-center rounded-full bg-black/70 text-sm text-zinc-200 opacity-0 transition hover:bg-violet-600 hover:text-white group-hover:opacity-100"
+              >
+                ⤢
+              </button>
               {/* Hover delete overlay for bad generations */}
               <button
                 onClick={() => onDelete(item.id)}

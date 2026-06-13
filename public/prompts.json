@@ -15,6 +15,13 @@
       "target": "image",
       "skill": "manual",
       "text": "A neon-lit night street market in the rain, cinematic wide shot, shallow depth of field, reflections on wet cobblestones, steam rising from food stalls, anamorphic lens flares, moody teal-and-magenta color grade, 35mm."
+    },
+    {
+      "id": "wwi-seagull",
+      "label": "WWI aviator seagull (Pixar)",
+      "target": "image",
+      "skill": "manual",
+      "text": "A charming Pixar-style 3D animated seagull character, expressive large eyes, friendly personable face, perched on a weathered wooden ledge. He wears a vintage brown leather aviator flight cap with fleece lining and brass goggles pushed up on his head, and a soft knitted scarf trailing in the breeze. On each wing is painted a WWI British RFC/RAF roundel — concentric rings with a red center, white middle ring, and blue outer ring. Clean white-grey seagull plumage with subtle iridescence. Warm soft cinematic lighting, golden hour, shallow depth of field, plain softly-blurred neutral background, half-body composition with negative space to one side. Highly detailed feathers, render in the style of a high-end animated feature film, 3:2 aspect."
     }
   ]
 }

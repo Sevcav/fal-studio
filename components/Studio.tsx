@@ -21,8 +21,19 @@ import {
   saveStoryboard,
   type GalleryItem,
 } from "@/lib/storage";
+import {
+  loadSpend,
+  addSpend,
+  resetSpend,
+  loadBalance,
+  setBalance as persistBalance,
+  clearBalance,
+  deductBalance,
+} from "@/lib/balance";
 import GalleryGrid from "./GalleryGrid";
 import Storyboard from "./Storyboard";
+import Lightbox from "./Lightbox";
+import ProjectBar from "./ProjectBar";
 
 type Status =
   | { state: "idle" }
@@ -110,6 +121,12 @@ export default function Studio() {
   const [galleryTab, setGalleryTab] = useState<"images" | "videos">("images");
   const [enhanced, setEnhanced] = useState<EnhancedPrompt[]>([]);
   const [showEnhanced, setShowEnhanced] = useState(false);
+  const [zoomItem, setZoomItem] = useState<GalleryItem | null>(null);
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+  const [spend, setSpend] = useState(0);
+  const [balance, setBalanceState] = useState<number | null>(null);
+  const [balanceDraft, setBalanceDraft] = useState("");
+  const [editingBalance, setEditingBalance] = useState(false);
 
   const model = useMemo(
     () => MODELS.find((m) => m.endpoint === modelEndpoint) ?? MODELS[0],
@@ -122,8 +139,18 @@ export default function Studio() {
     setShowKey(!key);
     setGallery(loadGallery());
     setStoryboard(loadStoryboard());
+    setSpend(loadSpend());
+    setBalanceState(loadBalance());
     setHydrated(true);
   }, []);
+
+  function saveBalance() {
+    const n = Number(balanceDraft.trim());
+    if (!Number.isFinite(n)) return;
+    persistBalance(n);
+    setBalanceState(n);
+    setEditingBalance(false);
+  }
 
   // Load Claude Code-authored enhanced prompts. Re-fetched on demand via refresh.
   function loadEnhanced() {
@@ -186,6 +213,32 @@ export default function Studio() {
     window.scrollTo({ top: 0, behavior: "smooth" });
   }
 
+  // Insert a saved project image (object URL) as a reference into edit/animate.
+  function insertSavedImage(url: string) {
+    const target =
+      MODELS.find((m) => m.kind === "edit") ?? MODELS.find((m) => m.kind === "i2v");
+    if (!target) return;
+    selectModel(target.endpoint);
+    setRefImages([url]);
+  }
+
+  function toggleSelect(id: string) {
+    setSelectedIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  }
+
+  // New project = fully fresh start: clear gallery, storyboard, and prompts.
+  function newProjectReset() {
+    updateGallery([]);
+    updateStoryboard([]);
+    setEnhanced([]);
+    setSelectedIds(new Set());
+  }
+
   async function generate() {
     if (!apiKey) {
       setShowKey(true);
@@ -226,6 +279,12 @@ export default function Studio() {
       updateGallery([...items, ...gallery]);
       // Jump to the tab matching what was just generated so the result is visible.
       setGalleryTab(isImageKind(model.kind) ? "images" : "videos");
+      // Track estimated spend (counts up) and deduct from manual balance (counts down).
+      if (cost.usd != null) {
+        setSpend(addSpend(cost.usd));
+        const next = deductBalance(cost.usd);
+        if (next != null) setBalanceState(next);
+      }
       setStatus({ state: "idle" });
     } catch (err) {
       setStatus({ state: "error", message: errorMessage(err) });
@@ -255,10 +314,90 @@ export default function Studio() {
 
   return (
     <div className="flex h-screen flex-col overflow-hidden">
-      {/* Reassurance band — promoted to the top per the merged "winner" */}
-      <div className="border-b border-zinc-800 bg-zinc-950 px-4 py-2 text-center text-xs text-zinc-400">
-        No signup. No subscription. You pay <span className="text-zinc-200">fal</span>, nobody else —
-        and your key is saved to <span className="text-violet-300">this browser alone</span>.
+      {/* Reassurance band + balance/spend chip */}
+      <div className="flex items-center justify-between gap-4 border-b border-zinc-800 bg-zinc-950 px-4 py-2 text-xs">
+        <p className="text-zinc-400">
+          No signup. No subscription. You pay <span className="text-zinc-200">fal</span>, nobody else —
+          and your key is saved to <span className="text-violet-300">this browser alone</span>.
+        </p>
+        <div className="flex shrink-0 items-center gap-3">
+          {/* Short note: these are local estimates, not live fal figures */}
+          <span className="hidden whitespace-nowrap text-zinc-600 lg:inline">
+            Estimated locally from each generation —
+          </span>
+          {/* Estimated spend — summed from each generation's cost, fully local */}
+          <span
+            className="whitespace-nowrap text-zinc-500"
+            title="Estimated from each generation's cost. Your fal dashboard is the true balance."
+          >
+            Spent (est): <span className="font-semibold text-zinc-300">${spend.toFixed(2)}</span>
+          </span>
+          <button
+            onClick={() => {
+              resetSpend();
+              setSpend(0);
+            }}
+            title="Reset the estimated-spend counter"
+            className="whitespace-nowrap text-zinc-600 transition hover:text-zinc-400"
+          >
+            reset
+          </button>
+
+          <span className="text-zinc-700">|</span>
+
+          {/* Manual balance — you set it from the dashboard, it counts down */}
+          {hydrated && (editingBalance || balance == null) ? (
+            <span className="flex items-center gap-1">
+              <span className="text-zinc-500">Balance $</span>
+              <input
+                type="number"
+                step="0.01"
+                autoFocus
+                value={balanceDraft}
+                onChange={(e) => setBalanceDraft(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter") saveBalance();
+                  if (e.key === "Escape") setEditingBalance(false);
+                }}
+                placeholder="17.75"
+                className="w-16 rounded border border-zinc-700 bg-zinc-950 px-1.5 py-0.5 text-xs text-zinc-200 outline-none focus:border-violet-500"
+              />
+              <button onClick={saveBalance} className="text-violet-400 hover:underline">save</button>
+            </span>
+          ) : (
+            <span className="flex items-center gap-1.5">
+              <span
+                className="whitespace-nowrap text-zinc-500"
+                title="The balance you last entered, minus estimated spend since. Click Update to re-sync from fal."
+              >
+                Balance (est):{" "}
+                <span className={`font-semibold ${(balance ?? 0) < 1 ? "text-red-400" : "text-emerald-400"}`}>
+                  ${(balance ?? 0).toFixed(2)}
+                </span>
+              </span>
+              <button
+                onClick={() => {
+                  setBalanceDraft(balance != null ? balance.toFixed(2) : "");
+                  setEditingBalance(true);
+                }}
+                title="Set this to your real balance from the fal dashboard"
+                className="text-zinc-600 transition hover:text-zinc-400"
+              >
+                update
+              </button>
+            </span>
+          )}
+
+          <a
+            href="https://fal.ai/dashboard/usage"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="whitespace-nowrap text-violet-400 hover:underline"
+            title="Open your fal dashboard to read your real balance"
+          >
+            fal balance ↗
+          </a>
+        </div>
       </div>
 
       <div className="flex min-h-0 flex-1">
@@ -507,8 +646,19 @@ export default function Studio() {
 
         {/* ---------- CENTER GALLERY ---------- */}
         <main className="flex min-w-0 flex-1 flex-col overflow-y-auto">
+          {/* Project workspace bar */}
+          <ProjectBar
+            gallery={gallery}
+            storyboard={storyboard}
+            prompts={enhanced}
+            selectedIds={selectedIds}
+            onClearSelection={() => setSelectedIds(new Set())}
+            onNewProject={newProjectReset}
+            onInsertImage={(url) => insertSavedImage(url)}
+          />
+
           <div className="flex items-center justify-between border-b border-zinc-800 px-4 py-2.5">
-            <div className="flex gap-1">
+            <div className="flex items-center gap-1">
               {(["images", "videos"] as const).map((t) => {
                 const count = t === "images" ? imageItems.length : videoItems.length;
                 const active = galleryTab === t;
@@ -527,31 +677,54 @@ export default function Studio() {
                 );
               })}
             </div>
-            {shownItems.length > 0 && (
-              <button
-                onClick={() => {
-                  if (
-                    window.confirm(
-                      `Clear all ${galleryTab}? Downloaded files are unaffected.`,
-                    )
-                  ) {
-                    // Remove only the items in the active tab; keep the other kind.
-                    const keep = galleryTab === "images" ? videoItems : imageItems;
-                    updateGallery(keep);
-                  }
-                }}
-                className="text-xs text-zinc-500 transition hover:text-red-400"
-              >
-                Clear {galleryTab}
-              </button>
-            )}
+            <div className="flex items-center gap-3 text-xs">
+              {shownItems.length > 0 && (
+                <>
+                  <button
+                    onClick={() => {
+                      const allSelected = shownItems.every((i) => selectedIds.has(i.id));
+                      setSelectedIds((prev) => {
+                        const next = new Set(prev);
+                        for (const i of shownItems) {
+                          if (allSelected) next.delete(i.id);
+                          else next.add(i.id);
+                        }
+                        return next;
+                      });
+                    }}
+                    className="text-zinc-400 transition hover:text-zinc-200"
+                  >
+                    {shownItems.every((i) => selectedIds.has(i.id)) ? "Deselect all" : "Select all"}
+                  </button>
+                  {selectedIds.size > 0 && (
+                    <span className="text-violet-300">{selectedIds.size} selected</span>
+                  )}
+                  <button
+                    onClick={() => {
+                      if (
+                        window.confirm(`Clear all ${galleryTab}? Downloaded files are unaffected.`)
+                      ) {
+                        const keep = galleryTab === "images" ? videoItems : imageItems;
+                        updateGallery(keep);
+                      }
+                    }}
+                    className="text-zinc-500 transition hover:text-red-400"
+                  >
+                    Clear {galleryTab}
+                  </button>
+                </>
+              )}
+            </div>
           </div>
           <GalleryGrid
             items={shownItems}
             tab={galleryTab}
+            selectedIds={selectedIds}
+            onToggleSelect={toggleSelect}
             onDelete={(id) => updateGallery(gallery.filter((g) => g.id !== id))}
             onAddToStory={addToStory}
             onUseImage={useImage}
+            onZoom={setZoomItem}
           />
         </main>
 
@@ -564,6 +737,9 @@ export default function Studio() {
           onDropItem={addToStory}
         />
       </div>
+
+      {/* Fullscreen viewer */}
+      <Lightbox item={zoomItem} onClose={() => setZoomItem(null)} />
     </div>
   );
 }

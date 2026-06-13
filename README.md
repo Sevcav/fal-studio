@@ -9,8 +9,29 @@ A personal image & video generation studio for [fal.ai](https://fal.ai), built w
 Three-panel "Director's Desk" workspace:
 
 - **Left rail** — model selector (grouped by task), plain-English "which to pick" hints, clickable example prompts, per-model options, a reference-image input for edit/animate modes, and the bring-your-own-key utility.
-- **Center** — the gallery contact sheet. Every result gets `+ Story`, `Use →` (send an image into edit/animate), download, and delete.
+- **Center** — the gallery contact sheet, split into **Images** / **Videos** tabs. Every result gets `+ Story`, `Use →` (send an image into edit/animate), download, delete (hover ✕), and **click-to-zoom** (or the ⤢ button) to open a full-screen lightbox — click anywhere or press Esc to close.
 - **Right** — the **Story** panel. Drag images/videos in from the gallery and drag shots up/down to sequence them.
+
+## Projects (save to a real folder)
+
+The bar above the gallery is a project workspace backed by an actual folder on your drive (via the browser's File System Access API).
+
+- **Choose project folder** once. Inside it, each project is a subfolder with `images/`, `videos/`, `storyboard/`, and a `project.json` (prompts + storyboard order).
+- **New project** = a fresh start: it clears the on-screen gallery, storyboard, and prompts so each project is self-contained.
+- **Switch project** from the dropdown to reopen an existing one.
+- **Select** items with the checkboxes (or **Select all**), then **Save selected** writes the media into the project's `images/` and `videos/` folders. With nothing selected, it saves everything.
+- **Insert saved image** browses a project's `images/` folder as thumbnails; click one to load it as a reference into edit/animate mode.
+
+**Browser support:** direct folder saving needs **Chrome or Edge**. On **Firefox/Safari** the app automatically falls back to bundling the selected media into a single **`.zip` download** (foldered by type) — same result, one extra unzip step. After a full page reload the browser may ask you to re-grant folder access (a one-click confirm), since handles are remembered but permission is re-checked for security.
+
+## Tracking spend
+
+The top bar shows two figures, both fully local (no key, no API call):
+
+- **Spent (est)** — counts *up*, summed from each generation's cost estimate. **reset** zeroes it.
+- **Balance (est)** — counts *down*. Click **update**, type the real balance you read off your fal dashboard, and each generation subtracts its estimated cost from it. When it drifts from reality (estimates aren't exact), open fal via the **↗** link and re-sync with one update. Turns red below $1.
+
+We intentionally do *not* call fal's billing API in-app: that endpoint requires an **ADMIN-scoped** key (higher-privilege than the generation key — it can touch billing, private models, and CLI), which isn't worth storing in a browser given this app's "keys stay safe" premise. The manual balance gives you a live countdown without that exposure, and the dashboard stays the source of truth.
 
 ## Models
 

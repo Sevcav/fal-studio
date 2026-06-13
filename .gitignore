@@ -20,6 +20,10 @@
 # production
 /build
 
+# user-generated project media (saved generations — keep out of the repo)
+/Images/
+/Videos/
+
 # misc
 .DS_Store
 *.pem
