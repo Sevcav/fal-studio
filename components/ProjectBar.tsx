@@ -5,7 +5,9 @@ import type { GalleryItem } from "@/lib/storage";
 import {
   fsAccessSupported,
   pickRoot,
-  restoreRoot,
+  restoreRootSilent,
+  reconnectRoot,
+  forgetRoot,
   listProjects,
   openProject,
   saveItemsToProject,
@@ -44,22 +46,47 @@ export default function ProjectBar({
   const [busy, setBusy] = useState<string | null>(null);
   const [savedImages, setSavedImages] = useState<SavedImage[]>([]);
   const [showInsert, setShowInsert] = useState(false);
+  // True when a folder was saved before but the browser needs a click to re-grant
+  // permission (it cannot be requested automatically on load).
+  const [needsReconnect, setNeedsReconnect] = useState(false);
   // Feature detection touches `window`, so it must not run during SSR — gate it
   // behind a mount flag to keep the first client render identical to the server.
   const [mounted, setMounted] = useState(false);
   useEffect(() => setMounted(true), []);
   const supported = mounted && fsAccessSupported();
 
-  // Try to silently note a previously-picked root (permission re-grant needs a click).
+  // On load: only QUERY permission (never request — that needs a user gesture).
   useEffect(() => {
     if (!supported) return;
-    restoreRoot().then((h) => {
-      if (h) {
-        setRoot(h);
-        listProjects(h).then(setProjects);
+    restoreRootSilent().then((state) => {
+      if (state.status === "ready") {
+        setRoot(state.handle);
+        listProjects(state.handle).then(setProjects).catch(() => setProjects([]));
+      } else if (state.status === "needs-reconnect") {
+        setNeedsReconnect(true);
       }
     });
   }, [supported]);
+
+  // Triggered by a button click, so requestPermission is allowed.
+  async function handleReconnect() {
+    setBusy("Reconnecting…");
+    const h = await reconnectRoot();
+    if (h) {
+      setRoot(h);
+      setNeedsReconnect(false);
+      setProjects(await listProjects(h).catch(() => []));
+      setBusy(null);
+    } else {
+      // Folder was deleted or permission denied — forget it and start over.
+      await forgetRoot();
+      setNeedsReconnect(false);
+      setRoot(null);
+      setProject(null);
+      setBusy("Folder unavailable — choose a new one");
+      setTimeout(() => setBusy(null), 3000);
+    }
+  }
 
   async function handlePickRoot() {
     const h = await pickRoot();
@@ -76,21 +103,41 @@ export default function ProjectBar({
     );
     if (name && name.trim()) {
       setBusy("Creating project…");
-      const proj = await openProject(h, name.trim());
-      setProject(proj);
-      setProjects(await listProjects(h));
-      setBusy(null);
-      onNewProject(); // fresh start for the new project
+      try {
+        const proj = await openProject(h, name.trim());
+        setProject(proj);
+        setProjects(await listProjects(h));
+        setBusy(null);
+        onNewProject(); // fresh start for the new project
+      } catch {
+        await handleFolderGone();
+      }
     }
+  }
+
+  // Folder ops can throw NotFoundError if the folder was deleted on disk
+  // mid-session — reset to a clean state and tell the user, rather than crash.
+  async function handleFolderGone() {
+    await forgetRoot();
+    setRoot(null);
+    setProject(null);
+    setProjects([]);
+    setNeedsReconnect(false);
+    setBusy("Project folder was removed — choose a folder again");
+    setTimeout(() => setBusy(null), 4000);
   }
 
   async function handleOpen(name: string) {
     if (!root) return;
     setBusy("Opening…");
-    const proj = await openProject(root, name);
-    setProject(proj);
-    setProjects(await listProjects(root));
-    setBusy(null);
+    try {
+      const proj = await openProject(root, name);
+      setProject(proj);
+      setProjects(await listProjects(root));
+      setBusy(null);
+    } catch {
+      await handleFolderGone();
+    }
   }
 
   async function handleNew() {
@@ -128,7 +175,12 @@ export default function ProjectBar({
         setBusy(`Zipped ${res.saved}${res.failed ? `, ${res.failed} failed` : ""}`);
       }
       onClearSelection();
-    } catch {
+    } catch (e) {
+      // If the project folder was deleted on disk, reset cleanly.
+      if (e instanceof DOMException && e.name === "NotFoundError") {
+        await handleFolderGone();
+        return;
+      }
       setBusy("Save failed");
     }
     setTimeout(() => setBusy(null), 3000);
@@ -160,7 +212,18 @@ export default function ProjectBar({
         </span>
       )}
 
-      {supported && !root && (
+      {/* A folder was saved before but needs a click to re-grant access. */}
+      {supported && !root && needsReconnect && (
+        <button
+          onClick={handleReconnect}
+          title="Re-grant access to your saved project folder"
+          className="rounded-md bg-amber-600 px-3 py-1 font-medium text-white transition hover:bg-amber-500"
+        >
+          🔌 Reconnect folder
+        </button>
+      )}
+
+      {supported && !root && !needsReconnect && (
         <button
           onClick={handlePickRoot}
           className="rounded-md bg-violet-600 px-3 py-1 font-medium text-white transition hover:bg-violet-500"

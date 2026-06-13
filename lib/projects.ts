@@ -73,12 +73,37 @@ async function idbGet<T>(key: string): Promise<T | null> {
   });
 }
 
+async function idbDelete(key: string) {
+  const db = await idb();
+  await new Promise<void>((resolve, reject) => {
+    const tx = db.transaction(STORE, "readwrite");
+    tx.objectStore(STORE).delete(key);
+    tx.oncomplete = () => resolve();
+    tx.onerror = () => reject(tx.error);
+  });
+}
+
 // ---- Permission helpers ----
-async function ensurePermission(handle: DirHandle): Promise<boolean> {
+// Query only — safe to call on load (no user gesture needed).
+async function queryGranted(handle: DirHandle): Promise<boolean> {
   const opts = { mode: "readwrite" as const };
   if (!handle.queryPermission) return true;
-  if ((await handle.queryPermission(opts)) === "granted") return true;
-  if (handle.requestPermission && (await handle.requestPermission(opts)) === "granted") return true;
+  return (await handle.queryPermission(opts)) === "granted";
+}
+
+// Request permission — MUST be called from a user gesture (button click),
+// otherwise the browser throws SecurityError ("User activation is required").
+async function ensurePermission(handle: DirHandle): Promise<boolean> {
+  if (await queryGranted(handle)) return true;
+  const opts = { mode: "readwrite" as const };
+  try {
+    if (handle.requestPermission && (await handle.requestPermission(opts)) === "granted") {
+      return true;
+    }
+  } catch {
+    // SecurityError if called without a user gesture — caller should retry from a click.
+    return false;
+  }
   return false;
 }
 
@@ -96,12 +121,45 @@ export async function pickRoot(): Promise<DirHandle | null> {
   }
 }
 
-// Re-attach a previously-picked root; may prompt for permission (needs a gesture).
-export async function restoreRoot(): Promise<DirHandle | null> {
+// Result of trying to re-attach a saved root folder on load.
+export type RestoreState =
+  | { status: "none" } // no saved folder
+  | { status: "ready"; handle: DirHandle } // saved + permission already granted
+  | { status: "needs-reconnect" }; // saved but needs a click to re-grant permission
+
+// Safe to call on page load: only QUERIES permission, never requests it.
+export async function restoreRootSilent(): Promise<RestoreState> {
+  const handle = await idbGet<DirHandle>(ROOT_KEY);
+  if (!handle) return { status: "none" };
+  try {
+    if (await queryGranted(handle)) return { status: "ready", handle };
+  } catch {
+    // Handle may be stale/invalid — fall through to needing reconnect.
+  }
+  return { status: "needs-reconnect" };
+}
+
+// Call this from a BUTTON CLICK to re-grant permission on the saved folder.
+// Returns null if permission denied or the folder no longer exists.
+export async function reconnectRoot(): Promise<DirHandle | null> {
   const handle = await idbGet<DirHandle>(ROOT_KEY);
   if (!handle) return null;
-  const ok = await ensurePermission(handle);
-  return ok ? handle : null;
+  try {
+    const ok = await ensurePermission(handle);
+    if (!ok) return null;
+    // Verify the folder still exists (user may have deleted it).
+    await listProjects(handle);
+    return handle;
+  } catch {
+    // Folder was deleted/moved — forget the stale handle so the user re-picks.
+    await idbDelete(ROOT_KEY);
+    return null;
+  }
+}
+
+// Forget the saved root (e.g. after the folder was deleted on disk).
+export async function forgetRoot() {
+  await idbDelete(ROOT_KEY);
 }
 
 // ---- Projects ----
