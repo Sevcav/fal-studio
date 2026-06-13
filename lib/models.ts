@@ -32,7 +32,10 @@ export type Pricing =
   // Per second of video. Optional audio surcharge swaps the rate.
   | { type: "per_second"; usd: number; usdWithAudio?: number; note?: string }
   // Per second where the rate depends on the chosen resolution value.
-  | { type: "per_second_by_resolution"; usdByResolution: Record<string, number>; note?: string };
+  | { type: "per_second_by_resolution"; usdByResolution: Record<string, number>; note?: string }
+  // Token-based / usage-based pricing fal does not publish as a flat per-image
+  // figure (e.g. GPT Image 2). We show `note` instead of a fabricated number.
+  | { type: "varies"; note: string };
 
 export interface ModelDef {
   endpoint: string;
@@ -125,6 +128,26 @@ export const MODELS: ModelDef[] = [
         landscape_16_9: 1,
       },
     },
+  },
+  {
+    endpoint: "openai/gpt-image-2",
+    name: "GPT Image 2",
+    kind: "image",
+    blurb: "OpenAI's GPT Image 2 — top-tier text rendering & realism",
+    pick: "Best for accurate text in images and realism.",
+    selects: [
+      {
+        key: "image_size",
+        label: "Size",
+        values: ["auto", "square_hd", "square", "portrait_4_3", "portrait_16_9", "landscape_4_3", "landscape_16_9"],
+        defaultValue: "landscape_4_3",
+      },
+      { key: "quality", label: "Quality", values: ["auto", "low", "medium", "high"], defaultValue: "high" },
+      { key: "num_images", label: "Images", values: ["1", "2", "3", "4"], defaultValue: "1", numeric: true },
+    ],
+    toggles: [],
+    // Token/usage-based; fal does not publish a flat per-image price.
+    pricing: { type: "varies", note: "usage-based price (varies by quality)" },
   },
 
   // ---------- Image edit (reference image in) ----------
@@ -310,5 +333,8 @@ export function estimateCost(
         approximate: false,
       };
     }
+
+    case "varies":
+      return { usd: null, detail: p.note, approximate: true };
   }
 }

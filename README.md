@@ -12,6 +12,8 @@ Three-panel "Director's Desk" workspace:
 - **Center** — the gallery contact sheet, split into **Images** / **Videos** tabs. Every result gets `+ Story`, `Use →` (send an image into edit/animate), download, delete (hover ✕), and **click-to-zoom** (or the ⤢ button) to open a full-screen lightbox — click anywhere or press Esc to close.
 - **Right** — the **Story** panel. Drag images/videos in from the gallery and drag shots up/down to sequence them.
 
+On **desktop** all three panels show side-by-side. On **mobile** the layout collapses to a single column with a bottom tab bar (✨ Create · 🖼 Gallery · 🎬 Story); a finished generation auto-switches to the Gallery tab.
+
 ## Projects (save to a real folder)
 
 The bar above the gallery is a project workspace backed by an actual folder on your drive (via the browser's File System Access API).
@@ -52,6 +54,7 @@ We intentionally do *not* call fal's billing API in-app: that endpoint requires 
 | Nano Banana Pro | Text → Image | `fal-ai/nano-banana-pro` |
 | Imagen 4 | Text → Image | `fal-ai/imagen4/preview` |
 | FLUX 1.1 Pro | Text → Image | `fal-ai/flux-pro/v1.1` |
+| GPT Image 2 | Text → Image | `openai/gpt-image-2` |
 | Nano Banana Pro — Edit | Edit an Image | `fal-ai/nano-banana-pro/edit` |
 | Seedance 2.0 | Text → Video | `bytedance/seedance-2.0/text-to-video` |
 | Kling 3.0 | Text → Video | `fal-ai/kling-video/v3/standard/text-to-video` |

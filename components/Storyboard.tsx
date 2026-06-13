@@ -9,6 +9,8 @@ interface StoryboardProps {
   onRemove: (id: string) => void;
   onClear: () => void;
   onDropItem: (item: GalleryItem) => void;
+  /** Responsive visibility/width classes from the parent. */
+  className?: string;
 }
 
 export default function Storyboard({
@@ -17,6 +19,7 @@ export default function Storyboard({
   onRemove,
   onClear,
   onDropItem,
+  className = "",
 }: StoryboardProps) {
   const [dragId, setDragId] = useState<string | null>(null);
   const [over, setOver] = useState<string | null>(null);
@@ -47,7 +50,7 @@ export default function Storyboard({
   }
 
   return (
-    <aside className="flex h-full w-72 shrink-0 flex-col border-l border-zinc-800 bg-zinc-950/40">
+    <aside className={`h-full shrink-0 flex-col border-l border-zinc-800 bg-zinc-950/40 ${className}`}>
       <div className="flex items-center justify-between px-4 py-3">
         <h2 className="text-xs font-semibold uppercase tracking-wider text-zinc-400">
           Story <span className="text-zinc-600">({shots.length})</span>

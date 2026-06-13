@@ -124,6 +124,8 @@ export default function Studio() {
   const [zoomItem, setZoomItem] = useState<GalleryItem | null>(null);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [spend, setSpend] = useState(0);
+  // Mobile single-column view: which panel is showing (ignored on md+ screens).
+  const [mobileView, setMobileView] = useState<"create" | "gallery" | "story">("create");
   const [balance, setBalanceState] = useState<number | null>(null);
   const [balanceDraft, setBalanceDraft] = useState("");
   const [editingBalance, setEditingBalance] = useState(false);
@@ -279,6 +281,7 @@ export default function Studio() {
       updateGallery([...items, ...gallery]);
       // Jump to the tab matching what was just generated so the result is visible.
       setGalleryTab(isImageKind(model.kind) ? "images" : "videos");
+      setMobileView("gallery"); // on mobile, surface the new result
       // Track estimated spend (counts up) and deduct from manual balance (counts down).
       if (cost.usd != null) {
         setSpend(addSpend(cost.usd));
@@ -313,10 +316,10 @@ export default function Studio() {
   );
 
   return (
-    <div className="flex h-screen flex-col overflow-hidden">
+    <div className="flex h-dvh flex-col overflow-hidden">
       {/* Reassurance band + balance/spend chip */}
-      <div className="flex items-center justify-between gap-4 border-b border-zinc-800 bg-zinc-950 px-4 py-2 text-xs">
-        <p className="text-zinc-400">
+      <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-1 border-b border-zinc-800 bg-zinc-950 px-4 py-2 text-xs">
+        <p className="hidden text-zinc-400 sm:block">
           No signup. No subscription. You pay <span className="text-zinc-200">fal</span>, nobody else —
           and your key is saved to <span className="text-violet-300">this browser alone</span>.
         </p>
@@ -401,8 +404,12 @@ export default function Studio() {
       </div>
 
       <div className="flex min-h-0 flex-1">
-        {/* ---------- LEFT RAIL ---------- */}
-        <div className="flex w-80 shrink-0 flex-col overflow-y-auto border-r border-zinc-800 bg-zinc-950/40 p-4">
+        {/* ---------- LEFT RAIL (Create) ---------- */}
+        <div
+          className={`${
+            mobileView === "create" ? "flex" : "hidden"
+          } w-full shrink-0 flex-col overflow-y-auto border-r border-zinc-800 bg-zinc-950/40 p-4 md:flex md:w-80`}
+        >
           <div className="mb-4">
             <h1 className="bg-gradient-to-r from-violet-400 to-fuchsia-400 bg-clip-text text-xl font-bold text-transparent">
               Fal Studio
@@ -645,7 +652,11 @@ export default function Studio() {
         </div>
 
         {/* ---------- CENTER GALLERY ---------- */}
-        <main className="flex min-w-0 flex-1 flex-col overflow-y-auto">
+        <main
+          className={`${
+            mobileView === "gallery" ? "flex" : "hidden"
+          } min-w-0 flex-1 flex-col overflow-y-auto md:flex`}
+        >
           {/* Project workspace bar */}
           <ProjectBar
             gallery={gallery}
@@ -735,8 +746,31 @@ export default function Studio() {
           onRemove={(id) => updateStoryboard(storyboard.filter((s) => s.id !== id))}
           onClear={() => updateStoryboard([])}
           onDropItem={addToStory}
+          className={`${mobileView === "story" ? "flex w-full" : "hidden"} md:flex md:w-72`}
         />
       </div>
+
+      {/* Mobile bottom tab bar — hidden on md+ where all three panels show at once */}
+      <nav className="flex shrink-0 border-t border-zinc-800 bg-zinc-950 md:hidden">
+        {([
+          { key: "create", label: "Create", icon: "✨" },
+          { key: "gallery", label: `Gallery (${gallery.length})`, icon: "🖼" },
+          { key: "story", label: `Story (${storyboard.length})`, icon: "🎬" },
+        ] as const).map((tab) => (
+          <button
+            key={tab.key}
+            onClick={() => setMobileView(tab.key)}
+            className={`flex flex-1 flex-col items-center gap-0.5 py-2 text-[11px] font-medium transition ${
+              mobileView === tab.key
+                ? "bg-violet-600/20 text-violet-300"
+                : "text-zinc-400 hover:text-zinc-200"
+            }`}
+          >
+            <span className="text-base leading-none">{tab.icon}</span>
+            {tab.label}
+          </button>
+        ))}
+      </nav>
 
       {/* Fullscreen viewer */}
       <Lightbox item={zoomItem} onClose={() => setZoomItem(null)} />
