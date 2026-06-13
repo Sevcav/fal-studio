@@ -1,0 +1,20 @@
+{
+  "_comment": "Enhanced prompts written by Claude Code (running your skills) and read by the app. Ask in chat: 'enhance: <rough idea>' and this file gets rewritten. 'target' is image | video | any so the app can show the right ones per model.",
+  "updatedAt": "2026-06-12",
+  "prompts": [
+    {
+      "id": "demo-fox",
+      "label": "Red fox in snow (cinematic)",
+      "target": "video",
+      "skill": "multi-shot-prompt-framework",
+      "text": "A red fox bounding through fresh powder snow at golden hour. Shot 1 (0-3s): low-angle tracking shot, 85mm, shallow depth of field, the fox's breath visible in cold air. Shot 2 (3-6s): slow-motion mid-shot as it pounces, snow spraying, rim-lit by low sun. Shot 3 (6-10s): wide establishing shot, lone fox against a vast white field, soft falling snow, cinematic color grade, gentle ambient wind."
+    },
+    {
+      "id": "demo-market",
+      "label": "Neon rain market (still)",
+      "target": "image",
+      "skill": "manual",
+      "text": "A neon-lit night street market in the rain, cinematic wide shot, shallow depth of field, reflections on wet cobblestones, steam rising from food stalls, anamorphic lens flares, moody teal-and-magenta color grade, 35mm."
+    }
+  ]
+}
